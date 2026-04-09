@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, X, FileArchive, FileImage, File } from 'lucide-react';
+import { Download, X, FileArchive, FileImage } from 'lucide-react';
 import { Product, Category, CATEGORIES } from '@/types';
-import { base64ToBlob, downloadBlob } from '@/lib/imageUtils';
+import { fetchAsBlob, downloadBlob, getExtFromUrl } from '@/lib/imageUtils';
 import JSZip from 'jszip';
 
 interface DownloadManagerProps {
@@ -19,14 +19,22 @@ export default function DownloadManager({ products, onClose }: DownloadManagerPr
     const filtered = products.filter((p) => p.category === category);
     if (filtered.length === 0) return;
     setDownloading(true);
-    setProgress(`Preparando ${category}...`);
+    setProgress(`Descargando ${category}... (0/${filtered.length})`);
 
     const zip = new JSZip();
-    filtered.forEach((p, i) => {
-      const blob = base64ToBlob(p.imageData);
-      const ext = p.imageData.includes('png') ? 'png' : 'jpg';
-      zip.file(`${p.name || `imagen-${i + 1}`}.${ext}`, blob);
-    });
+
+    // Download images in batches of 5
+    for (let i = 0; i < filtered.length; i += 5) {
+      const batch = filtered.slice(i, i + 5);
+      const blobs = await Promise.all(
+        batch.map((p) => fetchAsBlob(p.imageData))
+      );
+      batch.forEach((p, j) => {
+        const ext = getExtFromUrl(p.imageData);
+        zip.file(`${p.name || `imagen-${i + j + 1}`}.${ext}`, blobs[j]);
+      });
+      setProgress(`Descargando ${category}... (${Math.min(i + 5, filtered.length)}/${filtered.length})`);
+    }
 
     const content = await zip.generateAsync({ type: 'blob' });
     downloadBlob(content, `${category}.zip`);
@@ -40,18 +48,29 @@ export default function DownloadManager({ products, onClose }: DownloadManagerPr
     setProgress('Preparando catálogo completo...');
 
     const zip = new JSZip();
-    CATEGORIES.forEach((cat) => {
-      const folder = zip.folder(cat);
+    let done = 0;
+
+    for (const cat of CATEGORIES) {
       const filtered = products.filter((p) => p.category === cat);
-      filtered.forEach((p, i) => {
-        const blob = base64ToBlob(p.imageData);
-        const ext = p.imageData.includes('png') ? 'png' : 'jpg';
-        folder?.file(`${p.name || `imagen-${i + 1}`}.${ext}`, blob);
-      });
-    });
+      if (filtered.length === 0) continue;
+      const folder = zip.folder(cat)!;
+
+      for (let i = 0; i < filtered.length; i += 5) {
+        const batch = filtered.slice(i, i + 5);
+        const blobs = await Promise.all(
+          batch.map((p) => fetchAsBlob(p.imageData))
+        );
+        batch.forEach((p, j) => {
+          const ext = getExtFromUrl(p.imageData);
+          folder.file(`${p.name || `imagen-${i + j + 1}`}.${ext}`, blobs[j]);
+        });
+        done += batch.length;
+        setProgress(`Descargando... (${done}/${products.length})`);
+      }
+    }
 
     const content = await zip.generateAsync({ type: 'blob' });
-    downloadBlob(content, 'catalogo-completo.zip');
+    downloadBlob(content, 'catalogo-sto-capricho.zip');
     setDownloading(false);
     setProgress('');
   };
@@ -82,7 +101,6 @@ export default function DownloadManager({ products, onClose }: DownloadManagerPr
             </div>
           ) : (
             <>
-              {/* Download all */}
               <button
                 onClick={downloadAll}
                 disabled={products.length === 0}
@@ -95,7 +113,6 @@ export default function DownloadManager({ products, onClose }: DownloadManagerPr
                 </div>
               </button>
 
-              {/* By category */}
               <p className="text-xs font-medium text-gray-500 pt-2">Por categoría:</p>
               {catCounts.map(({ cat, count }) => (
                 <button

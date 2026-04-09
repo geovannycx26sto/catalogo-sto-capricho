@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Download, Trash2, ArrowLeftRight, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product, Category, CATEGORIES } from '@/types';
-import { base64ToBlob, downloadBlob } from '@/lib/imageUtils';
+import { downloadFromUrl, getExtFromUrl } from '@/lib/imageUtils';
 import { deleteProduct, moveProduct } from '@/lib/store';
 
 interface ImageModalProps {
@@ -31,9 +31,8 @@ export default function ImageModal({
   const hasNext = currentIndex < products.length - 1;
 
   const handleDownload = () => {
-    const blob = base64ToBlob(product.imageData);
-    const ext = product.imageData.includes('png') ? 'png' : 'jpg';
-    downloadBlob(blob, `${product.name}.${ext}`);
+    const ext = getExtFromUrl(product.imageData);
+    downloadFromUrl(product.imageData, `${product.name}.${ext}`);
   };
 
   const handleDelete = async () => {

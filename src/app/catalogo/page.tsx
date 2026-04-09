@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Download, Search, X, Package, ChevronLeft, ChevronRight, Tag } from 'lucide-react';
 import { Product, Category, CATEGORIES } from '@/types';
 import { getAllProducts } from '@/lib/store';
-import { base64ToBlob, downloadBlob } from '@/lib/imageUtils';
+import { downloadFromUrl, getExtFromUrl } from '@/lib/imageUtils';
 
 export default function CatalogoPublico() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -50,9 +50,8 @@ export default function CatalogoPublico() {
     : -1;
 
   const handleDownload = (product: Product) => {
-    const blob = base64ToBlob(product.imageData);
-    const ext = product.imageData.includes('png') ? 'png' : 'jpg';
-    downloadBlob(blob, `${product.name}.${ext}`);
+    const ext = getExtFromUrl(product.imageData);
+    downloadFromUrl(product.imageData, `${product.name}.${ext}`);
   };
 
   const allCount = Object.values(counts).reduce((a, b) => a + b, 0);

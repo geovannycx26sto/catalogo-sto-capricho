@@ -41,6 +41,24 @@ export function base64ToBlob(base64: string): Blob {
   return new Blob([arr], { type: mime });
 }
 
+// Download from a URL (Supabase public URL) or base64
+export async function downloadFromUrl(url: string, filename: string) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    downloadBlob(blob, filename);
+  } catch {
+    // Fallback: open in new tab
+    window.open(url, '_blank');
+  }
+}
+
+// Fetch a URL and return as Blob (for ZIP packaging)
+export async function fetchAsBlob(url: string): Promise<Blob> {
+  const response = await fetch(url);
+  return response.blob();
+}
+
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -54,4 +72,11 @@ export function downloadBlob(blob: Blob, filename: string) {
 
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+// Get file extension from URL or data
+export function getExtFromUrl(url: string): string {
+  if (url.includes('.png')) return 'png';
+  if (url.includes('.webp')) return 'webp';
+  return 'jpg';
 }
