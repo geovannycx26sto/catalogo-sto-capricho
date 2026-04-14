@@ -185,6 +185,43 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteMultipleImages(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+
+  // Get image URLs for all selected products to remove them from storage
+  const { data, error: fetchError } = await supabase
+    .from('products')
+    .select('image_url, thumbnail_url')
+    .in('id', ids);
+
+  if (fetchError) throw fetchError;
+
+  // Collect all storage paths
+  const paths: string[] = [];
+  (data || []).forEach((row) => {
+    const fullMatch = row.image_url?.match(/catalog-images\/(.+)$/);
+    const thumbMatch = row.thumbnail_url?.match(/catalog-images\/(.+)$/);
+    if (fullMatch) paths.push(fullMatch[1]);
+    if (thumbMatch) paths.push(thumbMatch[1]);
+  });
+
+  // Remove from storage in a single batched call
+  if (paths.length > 0) {
+    const { error: storageError } = await supabase.storage
+      .from('catalog-images')
+      .remove(paths);
+    if (storageError) throw storageError;
+  }
+
+  // Remove rows from table
+  const { error: deleteError } = await supabase
+    .from('products')
+    .delete()
+    .in('id', ids);
+
+  if (deleteError) throw deleteError;
+}
+
 export async function moveProduct(id: string, newCategory: Category): Promise<void> {
   const { error } = await supabase
     .from('products')

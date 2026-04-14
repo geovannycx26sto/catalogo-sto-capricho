@@ -10,9 +10,12 @@ import {
   Copy,
   Check,
   ExternalLink,
+  CheckSquare,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { Product, Category, CATEGORIES } from '@/types';
-import { getAllProducts } from '@/lib/store';
+import { getAllProducts, deleteMultipleImages } from '@/lib/store';
 import CategoryNav from '@/components/CategoryNav';
 import SearchBar from '@/components/SearchBar';
 import ProductCard from '@/components/ProductCard';
@@ -30,6 +33,10 @@ export default function AdminPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [copied, setCopied] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -72,6 +79,46 @@ export default function AdminPage() {
       ? `${window.location.origin}/catalogo`
       : '/catalogo';
 
+  const toggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      if (prev) {
+        setSelectedIds(new Set());
+        setConfirmDelete(false);
+      }
+      return !prev;
+    });
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    try {
+      setDeleting(true);
+      await deleteMultipleImages(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      setConfirmDelete(false);
+      await loadProducts();
+    } catch (err) {
+      console.error('Error eliminando seleccionadas:', err);
+      alert('Ocurrió un error eliminando las fotos seleccionadas.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareLink);
@@ -112,6 +159,22 @@ export default function AdminPage() {
                 <Eye className="w-4 h-4" />
                 <span className="hidden md:inline">Vista previa</span>
               </a>
+              <button
+                onClick={toggleSelectionMode}
+                className={`${
+                  selectionMode ? 'btn-primary' : 'btn-secondary'
+                } flex items-center gap-2 text-sm`}
+                title={selectionMode ? 'Cancelar selección' : 'Seleccionar fotos'}
+              >
+                {selectionMode ? (
+                  <X className="w-4 h-4" />
+                ) : (
+                  <CheckSquare className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {selectionMode ? 'Cancelar' : 'Seleccionar'}
+                </span>
+              </button>
               <button
                 onClick={() => setShowShare(!showShare)}
                 className="btn-secondary flex items-center gap-2 text-sm relative"
@@ -213,17 +276,68 @@ export default function AdminPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div
+            className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 ${
+              selectionMode && selectedIds.size > 0 ? 'pb-24' : ''
+            }`}
+          >
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
-                onClick={() => setSelectedProduct(product)}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(product.id)}
+                onClick={() =>
+                  selectionMode
+                    ? toggleSelected(product.id)
+                    : setSelectedProduct(product)
+                }
               />
             ))}
           </div>
         )}
       </main>
+
+      {/* Bottom selection bar */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-semibold">
+                {selectedIds.size}
+              </div>
+              <p className="text-sm text-gray-700">
+                {selectedIds.size === 1
+                  ? 'foto seleccionada'
+                  : 'fotos seleccionadas'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {confirmDelete && (
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="btn-secondary text-sm"
+                  disabled={deleting}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                onClick={handleDeleteSelected}
+                disabled={deleting}
+                className="btn-primary flex items-center gap-2 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-60"
+              >
+                <Trash2 className="w-4 h-4" />
+                {deleting
+                  ? 'Eliminando...'
+                  : confirmDelete
+                  ? `Confirmar (${selectedIds.size})`
+                  : 'Eliminar seleccionadas'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Close share on outside click */}
       {showShare && (
