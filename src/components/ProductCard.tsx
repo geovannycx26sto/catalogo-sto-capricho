@@ -1,19 +1,40 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import { Product } from '@/types';
 
 interface ProductCardProps {
   product: Product;
   onClick: () => void;
+  selectionMode?: boolean;
+  selected?: boolean;
 }
 
-export default function ProductCard({ product, onClick }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  onClick,
+  selectionMode = false,
+  selected = false,
+}: ProductCardProps) {
   return (
     <div
       onClick={onClick}
-      className="card cursor-pointer overflow-hidden group product-grid-enter image-hover-zoom"
+      className={`card cursor-pointer overflow-hidden group product-grid-enter image-hover-zoom relative ${
+        selected ? 'ring-2 ring-gray-900' : ''
+      }`}
     >
-      <div className="aspect-[3/4] overflow-hidden bg-gray-50">
+      {selectionMode && (
+        <div
+          className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${
+            selected
+              ? 'bg-gray-900 border-gray-900 text-white'
+              : 'bg-white/90 border-white shadow'
+          }`}
+        >
+          {selected && <Check className="w-4 h-4" />}
+        </div>
+      )}
+      <div className={`aspect-[3/4] overflow-hidden bg-gray-50 ${selected ? 'opacity-80' : ''}`}>
         <img
           src={product.thumbnailData}
           alt={product.name}
