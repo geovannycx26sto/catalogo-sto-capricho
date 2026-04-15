@@ -5,6 +5,7 @@ import { Download, Search, X, Package, ChevronLeft, ChevronRight, Tag, MessageCi
 import { Product, Category, CATEGORIES } from '@/types';
 import { getAllProducts } from '@/lib/store';
 import { downloadFromUrl, getExtFromUrl } from '@/lib/imageUtils';
+import { trackVisit, trackProductView } from '@/lib/analytics';
 
 export default function CatalogoPublico() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -18,6 +19,7 @@ export default function CatalogoPublico() {
       setProducts(data);
       setLoading(false);
     });
+    trackVisit('/catalogo');
   }, []);
 
   const counts = useMemo(() => {
@@ -141,7 +143,10 @@ export default function CatalogoPublico() {
             {filteredProducts.map((product) => (
               <div
                 key={product.id}
-                onClick={() => setSelectedProduct(product)}
+                onClick={() => {
+                  setSelectedProduct(product);
+                  trackProductView(product);
+                }}
                 className="cursor-pointer group product-grid-enter"
               >
                 <div className="aspect-[3/4] rounded-xl overflow-hidden bg-gray-50 image-hover-zoom">

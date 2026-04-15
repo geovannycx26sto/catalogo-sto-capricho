@@ -13,7 +13,9 @@ import {
   Trash2,
   CheckSquare,
   X,
+  BarChart3,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Product, Category, CATEGORIES } from '@/types';
 import { getAllProducts, deleteProducts } from '@/lib/store';
 import CategoryNav from '@/components/CategoryNav';
@@ -181,6 +183,14 @@ export default function AdminPage() {
                     <Eye className="w-4 h-4" />
                     <span className="hidden md:inline">Vista previa</span>
                   </a>
+                  <Link
+                    href="/estadisticas"
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                    title="Ver flujo de visitantes"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Estadísticas</span>
+                  </Link>
                   <button
                     onClick={() => setSelectionMode(true)}
                     className="btn-secondary flex items-center gap-2 text-sm"
