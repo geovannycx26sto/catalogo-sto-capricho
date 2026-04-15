@@ -10,7 +10,7 @@ import { trackVisit, trackProductView } from '@/lib/analytics';
 export default function CatalogoPublico() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<Category | 'TODOS'>('TODOS');
+  const [selectedCategory, setSelectedCategory] = useState<Category | 'TODOS'>('REFERENCIAS');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 

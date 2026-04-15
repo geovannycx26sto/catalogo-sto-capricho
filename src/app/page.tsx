@@ -28,7 +28,7 @@ import DownloadManager from '@/components/DownloadManager';
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<Category | 'TODOS'>('TODOS');
+  const [selectedCategory, setSelectedCategory] = useState<Category | 'TODOS'>('REFERENCIAS');
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploader, setShowUploader] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
