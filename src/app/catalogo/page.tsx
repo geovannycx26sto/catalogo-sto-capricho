@@ -98,16 +98,6 @@ export default function CatalogoPublico() {
 
           {/* Categories */}
           <div className="flex gap-2 overflow-x-auto pb-1 justify-center flex-wrap">
-            <button
-              onClick={() => setSelectedCategory('TODOS')}
-              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                selectedCategory === 'TODOS'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              Todos ({allCount})
-            </button>
             {CATEGORIES.map((cat) => (
               <button
                 key={cat}
@@ -121,6 +111,16 @@ export default function CatalogoPublico() {
                 {cat} ({counts[cat] || 0})
               </button>
             ))}
+            <button
+              onClick={() => setSelectedCategory('TODOS')}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                selectedCategory === 'TODOS'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Todos ({allCount})
+            </button>
           </div>
         </div>
       </nav>

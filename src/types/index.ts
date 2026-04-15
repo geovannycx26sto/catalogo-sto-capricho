@@ -13,10 +13,10 @@ export interface Product {
 export type Category = 'TALLAS M' | 'TALLAS L' | 'TALLAS XL' | 'TALLAS XXL' | 'REFERENCIAS' | 'OTROS';
 
 export const CATEGORIES: Category[] = [
+  'REFERENCIAS',
   'TALLAS M',
   'TALLAS L',
   'TALLAS XL',
   'TALLAS XXL',
-  'REFERENCIAS',
   'OTROS',
 ];
