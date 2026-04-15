@@ -185,6 +185,32 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteProducts(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+
+  // Fetch all image urls for bulk storage removal
+  const { data } = await supabase
+    .from('products')
+    .select('image_url, thumbnail_url')
+    .in('id', ids);
+
+  if (data && data.length > 0) {
+    const paths: string[] = [];
+    for (const row of data) {
+      for (const url of [row.image_url, row.thumbnail_url]) {
+        const match = url?.match(/catalog-images\/(.+)$/);
+        if (match) paths.push(match[1]);
+      }
+    }
+    if (paths.length > 0) {
+      await supabase.storage.from('catalog-images').remove(paths);
+    }
+  }
+
+  const { error } = await supabase.from('products').delete().in('id', ids);
+  if (error) throw error;
+}
+
 export async function moveProduct(id: string, newCategory: Category): Promise<void> {
   const { error } = await supabase
     .from('products')

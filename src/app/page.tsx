@@ -10,9 +10,12 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Trash2,
+  CheckSquare,
+  X,
 } from 'lucide-react';
 import { Product, Category, CATEGORIES } from '@/types';
-import { getAllProducts } from '@/lib/store';
+import { getAllProducts, deleteProducts } from '@/lib/store';
 import CategoryNav from '@/components/CategoryNav';
 import SearchBar from '@/components/SearchBar';
 import ProductCard from '@/components/ProductCard';
@@ -30,6 +33,9 @@ export default function AdminPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [copied, setCopied] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -72,6 +78,40 @@ export default function AdminPage() {
       ? `${window.location.origin}/catalogo`
       : '/catalogo';
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(filteredProducts.map((p) => p.id)));
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`¿Eliminar ${count} imagen(es)? Esta acción no se puede deshacer.`)) return;
+    try {
+      setDeleting(true);
+      await deleteProducts(Array.from(selectedIds));
+      await loadProducts();
+      exitSelectionMode();
+    } catch (e) {
+      alert('Error al eliminar: ' + (e as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareLink);
@@ -103,36 +143,75 @@ export default function AdminPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <a
-                href="/catalogo"
-                target="_blank"
-                className="btn-icon hidden sm:flex items-center gap-1.5 text-xs text-gray-600"
-                title="Ver catálogo público"
-              >
-                <Eye className="w-4 h-4" />
-                <span className="hidden md:inline">Vista previa</span>
-              </a>
-              <button
-                onClick={() => setShowShare(!showShare)}
-                className="btn-secondary flex items-center gap-2 text-sm relative"
-              >
-                <Share2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Compartir</span>
-              </button>
-              <button
-                onClick={() => setShowDownload(true)}
-                className="btn-secondary flex items-center gap-2 text-sm"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Descargar</span>
-              </button>
-              <button
-                onClick={() => setShowUploader(true)}
-                className="btn-primary flex items-center gap-2 text-sm"
-              >
-                <Upload className="w-4 h-4" />
-                <span className="hidden sm:inline">Subir</span>
-              </button>
+              {selectionMode ? (
+                <>
+                  <button
+                    onClick={exitSelectionMode}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    <X className="w-4 h-4" />
+                    <span className="hidden sm:inline">Cancelar</span>
+                  </button>
+                  <button
+                    onClick={selectAllVisible}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    <span className="hidden sm:inline">Todas</span>
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={selectedIds.size === 0 || deleting}
+                    className="btn-primary flex items-center gap-2 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>
+                      {deleting ? 'Eliminando...' : `Eliminar (${selectedIds.size})`}
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <a
+                    href="/catalogo"
+                    target="_blank"
+                    className="btn-icon hidden sm:flex items-center gap-1.5 text-xs text-gray-600"
+                    title="Ver catálogo público"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span className="hidden md:inline">Vista previa</span>
+                  </a>
+                  <button
+                    onClick={() => setSelectionMode(true)}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                    title="Seleccionar varias para eliminar"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    <span className="hidden sm:inline">Seleccionar</span>
+                  </button>
+                  <button
+                    onClick={() => setShowShare(!showShare)}
+                    className="btn-secondary flex items-center gap-2 text-sm relative"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Compartir</span>
+                  </button>
+                  <button
+                    onClick={() => setShowDownload(true)}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Descargar</span>
+                  </button>
+                  <button
+                    onClick={() => setShowUploader(true)}
+                    className="btn-primary flex items-center gap-2 text-sm"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span className="hidden sm:inline">Subir</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -218,7 +297,13 @@ export default function AdminPage() {
               <ProductCard
                 key={product.id}
                 product={product}
-                onClick={() => setSelectedProduct(product)}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(product.id)}
+                onClick={() =>
+                  selectionMode
+                    ? toggleSelect(product.id)
+                    : setSelectedProduct(product)
+                }
               />
             ))}
           </div>
