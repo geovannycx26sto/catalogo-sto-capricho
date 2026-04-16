@@ -23,12 +23,7 @@ import { Product } from '@/types';
 
 type Range = '1d' | '7d' | '30d' | 'all';
 
-const RANGE_MS: Record<Range, number> = {
-  '1d': 1 * 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
-  all: Infinity,
-};
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const RANGE_LABELS: Record<Range, string> = {
   '1d': 'Hoy',
@@ -37,8 +32,37 @@ const RANGE_LABELS: Record<Range, string> = {
   all: 'Todo',
 };
 
+function startOfToday(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+// Clave YYYY-MM-DD en zona local (evita desfase UTC)
+function localDateKey(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function localDateKeyFromMs(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function formatDateShort(d: Date) {
   return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+}
+
+// Parsea "YYYY-MM-DD" como fecha local (no UTC) para evitar desfase
+function parseLocalDate(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 function formatDateTime(iso: string) {
@@ -85,8 +109,13 @@ export default function EstadisticasPage() {
     load();
   }, []);
 
-  const now = Date.now();
-  const cutoff = now - RANGE_MS[range];
+  const cutoff = useMemo(() => {
+    const today = startOfToday();
+    if (range === '1d') return today;
+    if (range === '7d') return today - 6 * DAY_MS;
+    if (range === '30d') return today - 29 * DAY_MS;
+    return 0; // 'all'
+  }, [range]);
 
   const fVisits = useMemo(
     () => visits.filter((v) => new Date(v.created_at).getTime() >= cutoff),
@@ -111,25 +140,24 @@ export default function EstadisticasPage() {
     return d;
   }, [fVisits]);
 
-  // Serie por día
+  // Serie por día (en zona local)
   const byDay = useMemo(() => {
-    const days = range === '1d' ? 1 : range === '7d' ? 7 : range === '30d' ? 30 : 30;
+    const days = range === '1d' ? 1 : range === '7d' ? 7 : 30;
+    const today = startOfToday();
     const map: Record<string, { visits: number; views: number }> = {};
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now - i * 24 * 60 * 60 * 1000);
-      const key = d.toISOString().slice(0, 10);
-      map[key] = { visits: 0, views: 0 };
+      map[localDateKeyFromMs(today - i * DAY_MS)] = { visits: 0, views: 0 };
     }
     for (const v of fVisits) {
-      const key = v.created_at.slice(0, 10);
+      const key = localDateKey(v.created_at);
       if (map[key]) map[key].visits++;
     }
     for (const v of fViews) {
-      const key = v.created_at.slice(0, 10);
+      const key = localDateKey(v.created_at);
       if (map[key]) map[key].views++;
     }
     return Object.entries(map).map(([date, vals]) => ({ date, ...vals }));
-  }, [fVisits, fViews, range, now]);
+  }, [fVisits, fViews, range]);
 
   const maxDayValue = Math.max(1, ...byDay.map((d) => Math.max(d.visits, d.views)));
 
@@ -283,7 +311,7 @@ export default function EstadisticasPage() {
                       />
                     </div>
                     <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                      {formatDateShort(new Date(d.date))}
+                      {formatDateShort(parseLocalDate(d.date))}
                     </span>
                   </div>
                 ))}
