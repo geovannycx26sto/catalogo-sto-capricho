@@ -18,6 +18,8 @@ import {
   VisitRow,
   ProductViewRow,
 } from '@/lib/analytics';
+import { getAllProducts } from '@/lib/store';
+import { Product } from '@/types';
 
 type Range = '1d' | '7d' | '30d' | 'all';
 
@@ -51,21 +53,33 @@ function formatDateTime(iso: string) {
 export default function EstadisticasPage() {
   const [visits, setVisits] = useState<VisitRow[]>([]);
   const [views, setViews] = useState<ProductViewRow[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>('7d');
 
   const load = async () => {
     setLoading(true);
     try {
-      const [v, pv] = await Promise.all([getVisits(1000), getProductViews(2000)]);
+      const [v, pv, prods] = await Promise.all([
+        getVisits(1000),
+        getProductViews(2000),
+        getAllProducts(),
+      ]);
       setVisits(v);
       setViews(pv);
+      setProducts(prods);
     } catch (e) {
       alert('Error cargando estadísticas: ' + (e as Error).message);
     } finally {
       setLoading(false);
     }
   };
+
+  const priceById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of products) if (p.price) m[p.id] = p.price;
+    return m;
+  }, [products]);
 
   useEffect(() => {
     load();
@@ -304,7 +318,14 @@ export default function EstadisticasPage() {
                         </span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{p.name}</p>
-                          <p className="text-xs text-gray-500">{p.category}</p>
+                          <p className="text-xs text-gray-500">
+                            {p.category}
+                            {priceById[p.id] && (
+                              <span className="ml-2 font-semibold text-gray-700">
+                                $ {priceById[p.id]}
+                              </span>
+                            )}
+                          </p>
                         </div>
                         <span className="text-sm font-semibold">{p.count}</span>
                       </li>

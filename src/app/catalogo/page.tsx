@@ -233,6 +233,11 @@ export default function CatalogoPublico() {
                   <span className="inline-block mt-1 px-3 py-0.5 rounded-full bg-gray-100 text-xs font-medium text-gray-600">
                     {selectedProduct.category}
                   </span>
+                  {selectedProduct.price && (
+                    <p className="mt-2 text-2xl font-bold text-gray-900">
+                      $ {selectedProduct.price}
+                    </p>
+                  )}
                   {selectedProduct.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {selectedProduct.tags.map((tag, i) => (

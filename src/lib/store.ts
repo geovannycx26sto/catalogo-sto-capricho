@@ -13,6 +13,7 @@ interface DBProduct {
   description: string;
   category: string;
   tags: string[];
+  price: string | null;
   image_url: string;
   thumbnail_url: string;
   created_at: string;
@@ -26,6 +27,7 @@ function toProduct(row: DBProduct): Product {
     description: row.description || '',
     category: row.category as Category,
     tags: row.tags || [],
+    price: row.price || '',
     imageData: row.image_url,
     thumbnailData: row.thumbnail_url,
     createdAt: new Date(row.created_at).getTime(),
@@ -110,6 +112,7 @@ export async function addProduct(product: Product): Promise<void> {
     description: product.description,
     category: product.category,
     tags: product.tags,
+    price: product.price || '',
     image_url: imageUrl,
     thumbnail_url: thumbUrl,
     created_at: new Date(product.createdAt).toISOString(),
@@ -137,6 +140,7 @@ export async function addProducts(products: Product[]): Promise<void> {
           description: product.description,
           category: product.category,
           tags: product.tags,
+          price: product.price || '',
           image_url: imageUrl,
           thumbnail_url: thumbUrl,
           created_at: new Date(product.createdAt).toISOString(),
@@ -159,10 +163,19 @@ export async function updateProduct(product: Product): Promise<void> {
       description: product.description,
       category: product.category,
       tags: product.tags,
+      price: product.price || '',
       updated_at: new Date().toISOString(),
     })
     .eq('id', product.id);
 
+  if (error) throw error;
+}
+
+export async function updateProductPrice(id: string, price: string): Promise<void> {
+  const { error } = await supabase
+    .from('products')
+    .update({ price, updated_at: new Date().toISOString() })
+    .eq('id', id);
   if (error) throw error;
 }
 
