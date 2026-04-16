@@ -14,6 +14,7 @@ import {
   CheckSquare,
   X,
   BarChart3,
+  Megaphone,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Product, Category, CATEGORIES } from '@/types';
@@ -183,6 +184,14 @@ export default function AdminPage() {
                     <Eye className="w-4 h-4" />
                     <span className="hidden md:inline">Vista previa</span>
                   </a>
+                  <Link
+                    href="/anuncio"
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                    title="Editar mensaje de bienvenida / promoción"
+                  >
+                    <Megaphone className="w-4 h-4" />
+                    <span className="hidden sm:inline">Anuncio</span>
+                  </Link>
                   <Link
                     href="/estadisticas"
                     className="btn-secondary flex items-center gap-2 text-sm"

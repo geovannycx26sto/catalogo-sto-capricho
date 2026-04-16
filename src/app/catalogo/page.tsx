@@ -6,6 +6,7 @@ import { Product, Category, CATEGORIES } from '@/types';
 import { getAllProducts } from '@/lib/store';
 import { downloadFromUrl, getExtFromUrl } from '@/lib/imageUtils';
 import { trackVisit, trackProductView } from '@/lib/analytics';
+import AnnouncementModal from '@/components/AnnouncementModal';
 
 export default function CatalogoPublico() {
   const [products, setProducts] = useState<Product[]>([])
@@ -171,6 +172,9 @@ export default function CatalogoPublico() {
       <footer className="border-t mt-12 py-8 text-center text-xs text-gray-400">
         <p>Sto Capricho &middot; Catálogo Digital &middot; {new Date().getFullYear()}</p>
       </footer>
+
+      {/* Announcement Modal */}
+      <AnnouncementModal />
 
       {/* WhatsApp Button */}
       <a
