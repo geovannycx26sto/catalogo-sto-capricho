@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Save, Eye, EyeOff, Upload, Trash2, Loader2 } from 'lucide-react';
 import {
   getAnnouncement,
   saveAnnouncement,
+  uploadAnnouncementImage,
   Announcement,
 } from '@/lib/announcements';
 import AnnouncementModal from '@/components/AnnouncementModal';
@@ -27,6 +28,7 @@ export default function AnuncioAdminPage() {
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
 
   useEffect(() => {
     getAnnouncement().then((a) => {
@@ -37,6 +39,22 @@ export default function AnuncioAdminPage() {
 
   const update = <K extends keyof Announcement>(key: K, value: Announcement[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingImg(true);
+      const url = await uploadAnnouncementImage(file);
+      update('image_url', url);
+    } catch (err) {
+      alert('Error al subir imagen: ' + (err as Error).message);
+    } finally {
+      setUploadingImg(false);
+      // Permite volver a subir el mismo archivo si se requiere
+      e.target.value = '';
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -130,24 +148,73 @@ export default function AnuncioAdminPage() {
               </button>
             </label>
 
-            <Field label="Imagen (URL)" hint="Opcional — usa la URL de un producto o cualquier imagen pública">
-              <input
-                type="url"
-                value={form.image_url}
-                onChange={(e) => update('image_url', e.target.value)}
-                placeholder="https://..."
-                className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-gray-500"
-              />
-              {form.image_url && (
-                <div className="mt-2 w-full h-32 rounded-lg overflow-hidden bg-gray-100">
+            <Field
+              label="Imagen"
+              hint="Sube una imagen desde tu dispositivo o pega una URL pública"
+            >
+              {form.image_url ? (
+                <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 border">
                   <img
                     src={form.image_url}
                     alt="preview"
                     className="w-full h-full object-cover"
-                    onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                    onError={(e) =>
+                      ((e.target as HTMLImageElement).style.display = 'none')
+                    }
                   />
+                  <button
+                    type="button"
+                    onClick={() => update('image_url', '')}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center text-red-600"
+                    title="Quitar imagen"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
+              ) : (
+                <label
+                  className={`flex flex-col items-center justify-center w-full h-40 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                    uploadingImg
+                      ? 'border-gray-400 bg-gray-50 cursor-wait'
+                      : 'border-gray-300 bg-gray-50 hover:border-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    disabled={uploadingImg}
+                    className="hidden"
+                  />
+                  {uploadingImg ? (
+                    <>
+                      <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                      <span className="mt-2 text-xs text-gray-500">
+                        Subiendo imagen...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-gray-400" />
+                      <span className="mt-2 text-sm font-medium text-gray-700">
+                        Click para subir imagen
+                      </span>
+                      <span className="text-[11px] text-gray-400">
+                        JPG, PNG o WEBP (se comprime automáticamente)
+                      </span>
+                    </>
+                  )}
+                </label>
               )}
+              <div className="mt-2">
+                <input
+                  type="url"
+                  value={form.image_url}
+                  onChange={(e) => update('image_url', e.target.value)}
+                  placeholder="...o pega una URL pública aquí"
+                  className="w-full text-xs px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-gray-500"
+                />
+              </div>
             </Field>
 
             <div className="grid sm:grid-cols-2 gap-4">
