@@ -179,6 +179,14 @@ export async function updateProductPrice(id: string, price: string): Promise<voi
   if (error) throw error;
 }
 
+export async function updateProductName(id: string, name: string): Promise<void> {
+  const { error } = await supabase
+    .from('products')
+    .update({ name, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteProduct(id: string): Promise<void> {
   // Get image URLs first to delete from storage
   const { data } = await supabase
