@@ -11,6 +11,8 @@ import {
   Tablet,
   TrendingUp,
   RefreshCw,
+  Clock,
+  UserPlus,
 } from 'lucide-react';
 import {
   getVisits,
@@ -161,6 +163,44 @@ export default function EstadisticasPage() {
 
   const maxDayValue = Math.max(1, ...byDay.map((d) => Math.max(d.visits, d.views)));
 
+  // Actividad por hora del día (0-23) dentro del rango — hora local
+  const byHour = useMemo(() => {
+    const arr = Array.from({ length: 24 }, () => 0);
+    for (const v of fVisits) {
+      const h = new Date(v.created_at).getHours();
+      arr[h]++;
+    }
+    return arr;
+  }, [fVisits]);
+
+  const maxHourValue = Math.max(1, ...byHour);
+  const peakHour = byHour.indexOf(Math.max(...byHour));
+
+  // Nuevos vs recurrentes: un visitante es "recurrente" si su primera visita
+  // (en todo el historial) ocurrió antes del inicio del rango actual.
+  const newVsReturning = useMemo(() => {
+    const firstSeen: Record<string, number> = {};
+    for (const v of visits) {
+      const sid = v.session_id;
+      if (!sid) continue;
+      const t = new Date(v.created_at).getTime();
+      if (firstSeen[sid] === undefined || t < firstSeen[sid]) {
+        firstSeen[sid] = t;
+      }
+    }
+    const seen = new Set<string>();
+    let nuevos = 0;
+    let recurrentes = 0;
+    for (const v of fVisits) {
+      const sid = v.session_id;
+      if (!sid || seen.has(sid)) continue;
+      seen.add(sid);
+      if ((firstSeen[sid] ?? Infinity) >= cutoff) nuevos++;
+      else recurrentes++;
+    }
+    return { nuevos, recurrentes };
+  }, [visits, fVisits, cutoff]);
+
   // Top productos
   const topProducts = useMemo(() => {
     const counts: Record<
@@ -252,12 +292,23 @@ export default function EstadisticasPage() {
         ) : (
           <>
             {/* Métricas */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
               <MetricCard
                 icon={<Users className="w-5 h-5" />}
                 label="Visitas"
                 value={fVisits.length}
                 hint={`${uniqueSessions} únicos`}
+              />
+              <MetricCard
+                icon={<UserPlus className="w-5 h-5" />}
+                label="Nuevos / Recurrentes"
+                value={`${newVsReturning.nuevos} / ${newVsReturning.recurrentes}`}
+                hint={
+                  uniqueSessions > 0
+                    ? `${Math.round((newVsReturning.recurrentes / uniqueSessions) * 100)}% vuelven`
+                    : undefined
+                }
+                small
               />
               <MetricCard
                 icon={<Eye className="w-5 h-5" />}
@@ -324,6 +375,56 @@ export default function EstadisticasPage() {
                   <span className="w-3 h-3 rounded bg-purple-400" /> Vistas de producto
                 </span>
               </div>
+            </section>
+
+            {/* Horas pico */}
+            <section className="bg-white rounded-2xl border p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-medium text-sm flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  Horas pico ({RANGE_LABELS[range]})
+                </h2>
+                {fVisits.length > 0 && (
+                  <span className="text-xs text-gray-500">
+                    Hora más activa:{' '}
+                    <span className="font-semibold text-gray-900">
+                      {String(peakHour).padStart(2, '0')}:00
+                    </span>
+                  </span>
+                )}
+              </div>
+              {fVisits.length === 0 ? (
+                <p className="text-sm text-gray-400 py-8 text-center">
+                  Sin datos para este período
+                </p>
+              ) : (
+                <div className="flex items-end gap-1 h-40 overflow-x-auto pb-2">
+                  {byHour.map((count, h) => (
+                    <div
+                      key={h}
+                      className="flex-1 min-w-[14px] flex flex-col items-center gap-1"
+                      title={`${String(h).padStart(2, '0')}:00 — ${count} visitas`}
+                    >
+                      <div className="w-full flex items-end h-32">
+                        <div
+                          className={`w-full rounded-t ${
+                            h === peakHour && count > 0
+                              ? 'bg-amber-500'
+                              : 'bg-blue-400'
+                          }`}
+                          style={{
+                            height: `${(count / maxHourValue) * 100}%`,
+                            minHeight: count > 0 ? '4px' : '0',
+                          }}
+                        />
+                      </div>
+                      <span className="text-[9px] text-gray-400">
+                        {String(h).padStart(2, '0')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Top productos + Visitas recientes */}
