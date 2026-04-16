@@ -159,8 +159,12 @@ export default function CatalogoPublico() {
                   />
                 </div>
                 <div className="mt-2 px-0.5">
-                  <h3 className="font-medium text-sm truncate">{product.name}</h3>
-                  <p className="text-xs text-gray-400">{product.category}</p>
+                  {product.price ? (
+                    <p className="font-semibold text-sm text-gray-900">$ {product.price}</p>
+                  ) : null}
+                  <p className={`text-xs text-gray-400 truncate ${product.price ? 'mt-0.5' : ''}`}>
+                    {product.name}
+                  </p>
                 </div>
               </div>
             ))}
