@@ -19,12 +19,17 @@ interface DBProduct {
   updated_at: string;
 }
 
+function mapCategory(raw: string): Category {
+  if (raw === 'OTROS') return 'VESTIDOS';
+  return raw as Category;
+}
+
 function toProduct(row: DBProduct): Product {
   return {
     id: row.id,
     name: row.name,
     description: row.description || '',
-    category: row.category as Category,
+    category: mapCategory(row.category),
     tags: row.tags || [],
     imageData: row.image_url,
     thumbnailData: row.thumbnail_url,

@@ -14,7 +14,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { Product, Category, CATEGORIES } from '@/types';
+import { Product, Category, CategoryFilter, CATEGORIES, CONJUNTOS_CATEGORIES } from '@/types';
 import { getAllProducts, deleteProducts } from '@/lib/store';
 import CategoryNav from '@/components/CategoryNav';
 import SearchBar from '@/components/SearchBar';
@@ -26,7 +26,7 @@ import DownloadManager from '@/components/DownloadManager';
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<Category | 'TODOS'>('TODOS');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('TODOS');
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploader, setShowUploader] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
@@ -59,7 +59,11 @@ export default function AdminPage() {
 
   const filteredProducts = useMemo(() => {
     let filtered = products;
-    if (selectedCategory !== 'TODOS') {
+    if (selectedCategory === 'CONJUNTOS') {
+      filtered = filtered.filter((p) =>
+        CONJUNTOS_CATEGORIES.includes(p.category)
+      );
+    } else if (selectedCategory !== 'TODOS') {
       filtered = filtered.filter((p) => p.category === selectedCategory);
     }
     if (searchQuery) {
