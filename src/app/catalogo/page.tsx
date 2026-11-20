@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Download, Search, X, Package, ChevronLeft, ChevronRight, Tag, Heart, Sparkles, Shield, Truck, Star } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Download, Search, X, Package, ChevronLeft, ChevronRight, Tag, Heart, Sparkles, Shield, Truck, Star, ZoomIn } from 'lucide-react';
 import { Product, Category, CategoryFilter, CATEGORIES, CONJUNTOS_CATEGORIES, NAV_ITEMS } from '@/types';
 import { getAllProducts } from '@/lib/store';
 import { downloadFromUrl, getExtFromUrl } from '@/lib/imageUtils';
 import { trackVisit, trackProductView } from '@/lib/analytics';
 import AnnouncementModal from '@/components/AnnouncementModal';
+
+const DAYS_NEW = 7;
+
+function isNewProduct(product: Product): boolean {
+  const now = Date.now();
+  const diff = now - product.createdAt;
+  return diff < DAYS_NEW * 24 * 60 * 60 * 1000;
+}
 
 export default function CatalogoPublico() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -15,6 +23,14 @@ export default function CatalogoPublico() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [gridKey, setGridKey] = useState(0);
+  const [zoomed, setZoomed] = useState(false);
+
+  // Touch swipe state
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchDeltaX = useRef(0);
+  const isSwiping = useRef(false);
 
   useEffect(() => {
     getAllProducts().then((data) => {
@@ -69,14 +85,82 @@ export default function CatalogoPublico() {
 
   const handleCategoryChange = useCallback((filter: CategoryFilter) => {
     setSelectedCategory(filter);
+    setGridKey((k) => k + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  const navigateProduct = useCallback((direction: 1 | -1) => {
+    const newIndex = currentIndex + direction;
+    if (newIndex >= 0 && newIndex < filteredProducts.length) {
+      setSelectedProduct(filteredProducts[newIndex]);
+    }
+  }, [currentIndex, filteredProducts]);
+
+  // Touch swipe handlers for modal
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (zoomed) return;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    touchDeltaX.current = 0;
+    isSwiping.current = false;
+  }, [zoomed]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (zoomed) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (!isSwiping.current && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+      isSwiping.current = true;
+    }
+    if (isSwiping.current) {
+      touchDeltaX.current = dx;
+    }
+  }, [zoomed]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (zoomed) return;
+    if (isSwiping.current && Math.abs(touchDeltaX.current) > 60) {
+      if (touchDeltaX.current > 0) {
+        navigateProduct(-1);
+      } else {
+        navigateProduct(1);
+      }
+    }
+    isSwiping.current = false;
+    touchDeltaX.current = 0;
+  }, [zoomed, navigateProduct]);
+
+  // Keyboard navigation
   useEffect(() => {
-    if (selectedProduct) setImageLoaded(false);
+    if (!selectedProduct) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') navigateProduct(-1);
+      if (e.key === 'ArrowRight') navigateProduct(1);
+      if (e.key === 'Escape') setSelectedProduct(null);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [selectedProduct, navigateProduct]);
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setImageLoaded(false);
+      setZoomed(false);
+    }
+  }, [selectedProduct]);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (selectedProduct) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
   }, [selectedProduct]);
 
   const allCount = Object.values(counts).reduce((a, b) => a + b, 0);
+  const newCount = products.filter(isNewProduct).length;
 
   const whatsappBase = 'https://wa.me/573136954802';
 
@@ -96,7 +180,24 @@ export default function CatalogoPublico() {
           <p className="text-gray-500 mt-3 text-sm sm:text-base max-w-md mx-auto">
             Moda femenina con estilo y personalidad. Encuentra tu look perfecto.
           </p>
-          <div className="flex items-center justify-center gap-6 mt-6 text-xs text-gray-400">
+
+          {/* Product stats */}
+          {!loading && products.length > 0 && (
+            <div className="flex items-center justify-center gap-4 mt-5">
+              <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-white/60 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <Package className="w-3.5 h-3.5" />
+                {products.length} productos
+              </span>
+              {newCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-xs text-rose-600 bg-rose-50/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {newCount} nuevos
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center justify-center gap-6 mt-5 text-xs text-gray-400">
             <span className="flex items-center gap-1.5">
               <Truck className="w-3.5 h-3.5" /> Envios a todo el pais
             </span>
@@ -250,46 +351,56 @@ export default function CatalogoPublico() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-5 stagger-grid">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                onClick={() => {
-                  setSelectedProduct(product);
-                  trackProductView(product);
-                }}
-                className="cursor-pointer group product-grid-enter product-card-tap"
-              >
-                <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 image-hover-zoom shadow-sm group-hover:shadow-lg transition-shadow duration-300">
-                  <img
-                    src={product.thumbnailData}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  {product.price && (
-                    <div className="absolute top-2.5 left-2.5">
-                      <span className="inline-block bg-white/90 backdrop-blur-sm text-gray-900 font-bold text-xs px-2.5 py-1 rounded-full shadow-sm">
-                        $ {product.price}
+          <div key={gridKey} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-5 stagger-grid category-fade-in">
+            {filteredProducts.map((product) => {
+              const isNew = isNewProduct(product);
+              return (
+                <div
+                  key={product.id}
+                  onClick={() => {
+                    setSelectedProduct(product);
+                    trackProductView(product);
+                  }}
+                  className="cursor-pointer group product-grid-enter product-card-tap"
+                >
+                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 image-hover-zoom shadow-sm group-hover:shadow-lg transition-shadow duration-300">
+                    <img
+                      src={product.thumbnailData}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    {/* Badges */}
+                    <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
+                      {isNew && (
+                        <span className="inline-flex items-center gap-1 bg-rose-500 text-white font-semibold text-[10px] px-2 py-0.5 rounded-full shadow-sm uppercase tracking-wider">
+                          <Sparkles className="w-2.5 h-2.5" />
+                          Nuevo
+                        </span>
+                      )}
+                      {product.price && (
+                        <span className="inline-block bg-white/90 backdrop-blur-sm text-gray-900 font-bold text-xs px-2.5 py-1 rounded-full shadow-sm">
+                          $ {product.price}
+                        </span>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute bottom-3 left-3 right-3 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+                      <span className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-medium px-3 py-1.5 rounded-full shadow-sm">
+                        <Heart className="w-3 h-3" />
+                        Ver detalle
                       </span>
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="absolute bottom-3 left-3 right-3 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-                    <span className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-medium px-3 py-1.5 rounded-full shadow-sm">
-                      <Heart className="w-3 h-3" />
-                      Ver detalle
-                    </span>
+                  </div>
+                  <div className="mt-2.5 px-1">
+                    <p className="text-xs text-gray-400 truncate">{product.name}</p>
+                    {product.price && (
+                      <p className="font-bold text-sm text-gray-900 mt-0.5">$ {product.price}</p>
+                    )}
                   </div>
                 </div>
-                <div className="mt-2.5 px-1">
-                  <p className="text-xs text-gray-400 truncate">{product.name}</p>
-                  {product.price && (
-                    <p className="font-bold text-sm text-gray-900 mt-0.5">$ {product.price}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
@@ -330,7 +441,7 @@ export default function CatalogoPublico() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white text-sm font-semibold px-6 py-2.5 rounded-full transition-all duration-200 shadow-md hover:shadow-lg"
             >
-              <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 fill-current" width="18" height="18">
+              <svg viewBox="0 0 24 24" className="fill-current" width="18" height="18">
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
               </svg>
               Escribenos por WhatsApp
@@ -374,7 +485,7 @@ export default function CatalogoPublico() {
           {/* Nav arrows - desktop */}
           {currentIndex > 0 && (
             <button
-              onClick={() => setSelectedProduct(filteredProducts[currentIndex - 1])}
+              onClick={() => navigateProduct(-1)}
               className="hidden sm:flex absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-10 p-2.5 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all hover:scale-105"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -382,7 +493,7 @@ export default function CatalogoPublico() {
           )}
           {currentIndex < filteredProducts.length - 1 && (
             <button
-              onClick={() => setSelectedProduct(filteredProducts[currentIndex + 1])}
+              onClick={() => navigateProduct(1)}
               className="hidden sm:flex absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-10 p-2.5 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all hover:scale-105"
             >
               <ChevronRight className="w-5 h-5" />
@@ -398,40 +509,74 @@ export default function CatalogoPublico() {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Image */}
-            <div className="relative bg-gray-100 flex items-center justify-center min-h-[320px] max-h-[55vh] sm:max-h-[65vh] overflow-hidden">
+            {/* Image with swipe + zoom */}
+            <div
+              className="relative bg-gray-100 flex items-center justify-center min-h-[320px] max-h-[55vh] sm:max-h-[65vh] overflow-hidden"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               {!imageLoaded && (
                 <div className="absolute inset-0 skeleton" />
               )}
               <img
                 src={selectedProduct.imageData}
                 alt={selectedProduct.name}
-                className={`max-w-full max-h-[55vh] sm:max-h-[65vh] object-contain transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                className={`max-w-full max-h-[55vh] sm:max-h-[65vh] object-contain transition-all duration-300 ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                } ${zoomed ? 'scale-[2] cursor-zoom-out' : 'cursor-zoom-in'}`}
                 onLoad={() => setImageLoaded(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomed((z) => !z);
+                }}
+                draggable={false}
               />
+
+              {/* Zoom hint */}
+              {imageLoaded && !zoomed && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setZoomed(true); }}
+                  className="absolute bottom-3 left-3 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors sm:hidden"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              )}
+
               {/* Mobile nav arrows */}
-              <div className="sm:hidden absolute bottom-3 right-3 flex gap-2">
-                {currentIndex > 0 && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSelectedProduct(filteredProducts[currentIndex - 1]); }}
-                    className="p-2 rounded-full bg-white/90 shadow-md"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                )}
-                {currentIndex < filteredProducts.length - 1 && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSelectedProduct(filteredProducts[currentIndex + 1]); }}
-                    className="p-2 rounded-full bg-white/90 shadow-md"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+              {!zoomed && (
+                <div className="sm:hidden absolute bottom-3 right-3 flex gap-2">
+                  {currentIndex > 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigateProduct(-1); }}
+                      className="p-2 rounded-full bg-white/90 shadow-md"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  )}
+                  {currentIndex < filteredProducts.length - 1 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigateProduct(1); }}
+                      className="p-2 rounded-full bg-white/90 shadow-md"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Counter */}
               {filteredProducts.length > 1 && (
                 <span className="absolute top-3 left-3 text-xs bg-black/40 text-white px-2.5 py-1 rounded-full">
                   {currentIndex + 1} / {filteredProducts.length}
+                </span>
+              )}
+
+              {/* New badge in modal */}
+              {isNewProduct(selectedProduct) && (
+                <span className="absolute top-3 right-14 inline-flex items-center gap-1 bg-rose-500 text-white font-semibold text-[10px] px-2 py-0.5 rounded-full shadow-sm uppercase tracking-wider">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  Nuevo
                 </span>
               )}
             </div>
