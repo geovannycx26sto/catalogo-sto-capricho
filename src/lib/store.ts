@@ -20,12 +20,17 @@ interface DBProduct {
   updated_at: string;
 }
 
+function mapCategory(raw: string): Category {
+  if (raw === 'OTROS') return 'VESTIDOS';
+  return raw as Category;
+}
+
 function toProduct(row: DBProduct): Product {
   return {
     id: row.id,
     name: row.name,
     description: row.description || '',
-    category: row.category as Category,
+    category: mapCategory(row.category),
     tags: row.tags || [],
     price: row.price || '',
     imageData: row.image_url,
@@ -209,7 +214,6 @@ export async function deleteProduct(id: string): Promise<void> {
 export async function deleteProducts(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
 
-  // Fetch all image urls for bulk storage removal
   const { data } = await supabase
     .from('products')
     .select('image_url, thumbnail_url')

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Download, Search, X, Package, ChevronLeft, ChevronRight, Tag, MessageCircle } from 'lucide-react';
-import { Product, Category, CATEGORIES } from '@/types';
+import { Product, Category, CategoryFilter, CATEGORIES, CONJUNTOS_CATEGORIES, NAV_ITEMS } from '@/types';
 import { getAllProducts } from '@/lib/store';
 import { downloadFromUrl, getExtFromUrl } from '@/lib/imageUtils';
 import { trackVisit, trackProductView } from '@/lib/analytics';
@@ -11,7 +11,7 @@ import AnnouncementModal from '@/components/AnnouncementModal';
 export default function CatalogoPublico() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<Category | 'TODOS'>('REFERENCIAS');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('REFERENCIAS');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -31,9 +31,18 @@ export default function CatalogoPublico() {
     return c;
   }, [products]);
 
+  const conjuntosCount = CONJUNTOS_CATEGORIES.reduce(
+    (s, c) => s + (counts[c] || 0), 0
+  );
+
+  const isConjuntosActive =
+    selectedCategory === 'CONJUNTOS' || CONJUNTOS_CATEGORIES.includes(selectedCategory as Category);
+
   const filteredProducts = useMemo(() => {
     let filtered = products;
-    if (selectedCategory !== 'TODOS') {
+    if (selectedCategory === 'CONJUNTOS') {
+      filtered = filtered.filter((p) => CONJUNTOS_CATEGORIES.includes(p.category));
+    } else if (selectedCategory !== 'TODOS') {
       filtered = filtered.filter((p) => p.category === selectedCategory);
     }
     if (searchQuery) {
@@ -98,30 +107,69 @@ export default function CatalogoPublico() {
           </div>
 
           {/* Categories */}
-          <div className="flex gap-2 overflow-x-auto pb-1 justify-center flex-wrap">
-            {CATEGORIES.map((cat) => (
+          <div className="space-y-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 justify-center flex-wrap">
+              {NAV_ITEMS.map((item) => {
+                const isActive = item.children
+                  ? isConjuntosActive
+                  : selectedCategory === item.filter;
+                const count = item.children
+                  ? conjuntosCount
+                  : counts[item.filter] || 0;
+                return (
+                  <button
+                    key={item.filter}
+                    onClick={() => setSelectedCategory(item.filter)}
+                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {item.label} ({count})
+                  </button>
+                );
+              })}
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => setSelectedCategory('TODOS')}
                 className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  selectedCategory === cat
+                  selectedCategory === 'TODOS'
                     ? 'bg-gray-900 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {cat} ({counts[cat] || 0})
+                Todos ({allCount})
               </button>
-            ))}
-            <button
-              onClick={() => setSelectedCategory('TODOS')}
-              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                selectedCategory === 'TODOS'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              Todos ({allCount})
-            </button>
+            </div>
+
+            {/* Sub-tallas conjuntos */}
+            {isConjuntosActive && (
+              <div className="flex gap-2 overflow-x-auto pb-1 justify-center flex-wrap">
+                <button
+                  onClick={() => setSelectedCategory('CONJUNTOS')}
+                  className={`whitespace-nowrap px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                    selectedCategory === 'CONJUNTOS'
+                      ? 'bg-gray-700 text-white'
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                >
+                  Todos ({conjuntosCount})
+                </button>
+                {CONJUNTOS_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`whitespace-nowrap px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      selectedCategory === cat
+                        ? 'bg-gray-700 text-white'
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                    }`}
+                  >
+                    {cat.replace('CONJUNTOS ', '')} ({counts[cat] || 0})
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </nav>
