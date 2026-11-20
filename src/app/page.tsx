@@ -10,10 +10,13 @@ import {
   Copy,
   Check,
   ExternalLink,
-  CheckSquare,
   Trash2,
+  CheckSquare,
   X,
+  BarChart3,
+  Megaphone,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Product, Category, CategoryFilter, CATEGORIES, CONJUNTOS_CATEGORIES } from '@/types';
 import { getAllProducts, deleteProducts } from '@/lib/store';
 import CategoryNav from '@/components/CategoryNav';
@@ -26,7 +29,7 @@ import DownloadManager from '@/components/DownloadManager';
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('TODOS');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('REFERENCIAS');
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploader, setShowUploader] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
@@ -35,7 +38,6 @@ export default function AdminPage() {
   const [showShare, setShowShare] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const loadProducts = async () => {
@@ -83,7 +85,7 @@ export default function AdminPage() {
       ? `${window.location.origin}/catalogo`
       : '/catalogo';
 
-  const toggleSelection = (id: string) => {
+  const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -92,32 +94,26 @@ export default function AdminPage() {
     });
   };
 
-  const enterSelectionMode = () => {
-    setSelectionMode(true);
-    setSelectedIds(new Set());
-  };
-
   const exitSelectionMode = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
-    setConfirmBulkDelete(false);
   };
 
   const selectAllVisible = () => {
     setSelectedIds(new Set(filteredProducts.map((p) => p.id)));
   };
 
-  const clearSelection = () => {
-    setSelectedIds(new Set());
-  };
-
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    setDeleting(true);
+    const count = selectedIds.size;
+    if (!confirm(`¿Eliminar ${count} imagen(es)? Esta acción no se puede deshacer.`)) return;
     try {
+      setDeleting(true);
       await deleteProducts(Array.from(selectedIds));
       await loadProducts();
       exitSelectionMode();
+    } catch (e) {
+      alert('Error al eliminar: ' + (e as Error).message);
     } finally {
       setDeleting(false);
     }
@@ -155,13 +151,32 @@ export default function AdminPage() {
             </div>
             <div className="flex items-center gap-2">
               {selectionMode ? (
-                <button
-                  onClick={exitSelectionMode}
-                  className="btn-secondary flex items-center gap-2 text-sm"
-                >
-                  <X className="w-4 h-4" />
-                  <span className="hidden sm:inline">Cancelar</span>
-                </button>
+                <>
+                  <button
+                    onClick={exitSelectionMode}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    <X className="w-4 h-4" />
+                    <span className="hidden sm:inline">Cancelar</span>
+                  </button>
+                  <button
+                    onClick={selectAllVisible}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    <span className="hidden sm:inline">Todas</span>
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={selectedIds.size === 0 || deleting}
+                    className="btn-primary flex items-center gap-2 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>
+                      {deleting ? 'Eliminando...' : `Eliminar (${selectedIds.size})`}
+                    </span>
+                  </button>
+                </>
               ) : (
                 <>
                   <a
@@ -173,20 +188,36 @@ export default function AdminPage() {
                     <Eye className="w-4 h-4" />
                     <span className="hidden md:inline">Vista previa</span>
                   </a>
+                  <Link
+                    href="/anuncio"
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                    title="Editar mensaje de bienvenida / promoción"
+                  >
+                    <Megaphone className="w-4 h-4" />
+                    <span className="hidden sm:inline">Anuncio</span>
+                  </Link>
+                  <Link
+                    href="/estadisticas"
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                    title="Ver flujo de visitantes"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Estadísticas</span>
+                  </Link>
+                  <button
+                    onClick={() => setSelectionMode(true)}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                    title="Seleccionar varias para eliminar"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    <span className="hidden sm:inline">Seleccionar</span>
+                  </button>
                   <button
                     onClick={() => setShowShare(!showShare)}
                     className="btn-secondary flex items-center gap-2 text-sm relative"
                   >
                     <Share2 className="w-4 h-4" />
                     <span className="hidden sm:inline">Compartir</span>
-                  </button>
-                  <button
-                    onClick={enterSelectionMode}
-                    className="btn-secondary flex items-center gap-2 text-sm"
-                    title="Seleccionar varias para eliminar"
-                  >
-                    <CheckSquare className="w-4 h-4" />
-                    <span className="hidden sm:inline">Seleccionar</span>
                   </button>
                   <button
                     onClick={() => setShowDownload(true)}
@@ -259,44 +290,6 @@ export default function AdminPage() {
           </p>
         </div>
 
-        {/* Selection action bar */}
-        {selectionMode && (
-          <div className="sticky top-16 z-20 bg-white rounded-xl border shadow-sm p-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-medium">
-                {selectedIds.size} seleccionada(s)
-              </span>
-              {selectedIds.size > 0 && (
-                <button
-                  onClick={clearSelection}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline"
-                >
-                  limpiar
-                </button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={selectAllVisible}
-                className="btn-secondary text-xs flex items-center gap-1.5"
-                disabled={filteredProducts.length === 0}
-              >
-                <CheckSquare className="w-3.5 h-3.5" />
-                Seleccionar todo
-                {filteredProducts.length > 0 && ` (${filteredProducts.length})`}
-              </button>
-              <button
-                onClick={() => setConfirmBulkDelete(true)}
-                disabled={selectedIds.size === 0 || deleting}
-                className="btn-primary text-xs flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Eliminar {selectedIds.size > 0 && `(${selectedIds.size})`}
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -331,7 +324,7 @@ export default function AdminPage() {
                 selected={selectedIds.has(product.id)}
                 onClick={() =>
                   selectionMode
-                    ? toggleSelection(product.id)
+                    ? toggleSelect(product.id)
                     : setSelectedProduct(product)
                 }
               />
@@ -358,56 +351,6 @@ export default function AdminPage() {
 
       {showDownload && (
         <DownloadManager products={products} onClose={() => setShowDownload(false)} />
-      )}
-
-      {/* Bulk delete confirmation */}
-      {confirmBulkDelete && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 modal-backdrop"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !deleting) setConfirmBulkDelete(false);
-          }}
-        >
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <Trash2 className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Eliminar imágenes</h3>
-                <p className="text-sm text-gray-500">
-                  ¿Eliminar {selectedIds.size} imagen(es) permanentemente?
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setConfirmBulkDelete(false)}
-                disabled={deleting}
-                className="btn-secondary text-sm"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                disabled={deleting}
-                className="btn-primary text-sm bg-red-600 hover:bg-red-700 flex items-center gap-2"
-              >
-                {deleting ? (
-                  <>
-                    <div className="spinner w-3.5 h-3.5 border-2" />
-                    Eliminando...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Sí, eliminar
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {selectedProduct && (

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Download, Trash2, ArrowLeftRight, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Download, Trash2, ArrowLeftRight, Tag, ChevronLeft, ChevronRight, Pencil, Check } from 'lucide-react';
 import { Product, Category, CATEGORIES } from '@/types';
 import { downloadFromUrl, getExtFromUrl } from '@/lib/imageUtils';
-import { deleteProduct, moveProduct } from '@/lib/store';
+import { deleteProduct, moveProduct, updateProductPrice, updateProductName } from '@/lib/store';
 
 interface ImageModalProps {
   product: Product;
@@ -25,6 +25,12 @@ export default function ImageModal({
 }: ImageModalProps) {
   const [showMove, setShowMove] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [priceInput, setPriceInput] = useState(product.price || '');
+  const [savingPrice, setSavingPrice] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(product.name);
+  const [savingName, setSavingName] = useState(false);
 
   const currentIndex = products.findIndex((p) => p.id === product.id);
   const hasPrev = currentIndex > 0;
@@ -45,6 +51,37 @@ export default function ImageModal({
     await moveProduct(product.id, cat);
     setShowMove(false);
     onUpdate();
+  };
+
+  const handleSavePrice = async () => {
+    try {
+      setSavingPrice(true);
+      await updateProductPrice(product.id, priceInput.trim());
+      setEditingPrice(false);
+      onUpdate();
+    } catch (e) {
+      alert('Error al guardar precio: ' + (e as Error).message);
+    } finally {
+      setSavingPrice(false);
+    }
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      alert('El nombre no puede estar vacío');
+      return;
+    }
+    try {
+      setSavingName(true);
+      await updateProductName(product.id, trimmed);
+      setEditingName(false);
+      onUpdate();
+    } catch (e) {
+      alert('Error al guardar nombre: ' + (e as Error).message);
+    } finally {
+      setSavingName(false);
+    }
   };
 
   const handlePrev = () => {
@@ -91,11 +128,62 @@ export default function ImageModal({
 
         {/* Info panel */}
         <div className="w-full md:w-80 flex flex-col border-t md:border-t-0 md:border-l">
-          <div className="flex items-center justify-between p-4 border-b">
-            <h3 className="font-semibold text-lg truncate">{product.name}</h3>
-            <button onClick={onClose} className="btn-icon flex-shrink-0">
-              <X className="w-5 h-5" />
-            </button>
+          <div className="flex items-center justify-between gap-2 p-4 border-b">
+            {editingName ? (
+              <div className="flex-1 flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveName();
+                    if (e.key === 'Escape') setEditingName(false);
+                  }}
+                  placeholder="Referencia / nombre"
+                  className="flex-1 min-w-0 text-sm px-2 py-1 rounded border border-gray-300 focus:outline-none focus:border-gray-500"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={savingName}
+                  className="btn-primary text-xs px-3 flex items-center gap-1 disabled:opacity-50"
+                  title="Guardar"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    setNameInput(product.name);
+                    setEditingName(false);
+                  }}
+                  className="btn-icon flex-shrink-0"
+                  title="Cancelar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                  <h3 className="font-semibold text-lg truncate">{product.name}</h3>
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setNameInput(product.name);
+                        setEditingName(true);
+                      }}
+                      className="btn-icon flex-shrink-0 text-gray-400 hover:text-gray-900"
+                      title="Editar referencia"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <button onClick={onClose} className="btn-icon flex-shrink-0">
+                  <X className="w-5 h-5" />
+                </button>
+              </>
+            )}
           </div>
 
           <div className="flex-1 p-4 space-y-4 overflow-y-auto">
@@ -103,6 +191,55 @@ export default function ImageModal({
               <span className="inline-block px-3 py-1 rounded-full bg-gray-900 text-white text-xs font-medium">
                 {product.category}
               </span>
+            </div>
+
+            {/* Precio */}
+            <div className="p-3 rounded-lg bg-gray-50">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-gray-500">Precio</p>
+                {isAdmin && !editingPrice && (
+                  <button
+                    onClick={() => {
+                      setPriceInput(product.price || '');
+                      setEditingPrice(true);
+                    }}
+                    className="btn-icon text-xs flex items-center gap-1 text-gray-500 hover:text-gray-900"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    {product.price ? 'Editar' : 'Agregar'}
+                  </button>
+                )}
+              </div>
+              {editingPrice ? (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={priceInput}
+                    onChange={(e) => setPriceInput(e.target.value)}
+                    placeholder="Ej: 15.000"
+                    className="flex-1 text-sm px-2 py-1 rounded border border-gray-200 focus:outline-none focus:border-gray-400"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSavePrice}
+                    disabled={savingPrice}
+                    className="btn-primary text-xs px-3 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    {savingPrice ? '...' : 'Guardar'}
+                  </button>
+                  <button
+                    onClick={() => setEditingPrice(false)}
+                    className="btn-icon"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-1 text-xl font-bold text-gray-900">
+                  {product.price ? `$ ${product.price}` : <span className="text-sm font-normal text-gray-400">Sin precio</span>}
+                </p>
+              )}
             </div>
 
             {product.description && (

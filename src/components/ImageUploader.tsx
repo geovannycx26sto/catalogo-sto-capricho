@@ -19,6 +19,7 @@ interface PendingFile {
   description: string;
   category: Category;
   tags: string;
+  price: string;
 }
 
 export default function ImageUploader({ onUploadComplete, onClose }: ImageUploaderProps) {
@@ -36,6 +37,7 @@ export default function ImageUploader({ onUploadComplete, onClose }: ImageUpload
         description: '',
         category: defaultCategory,
         tags: '',
+        price: '',
       }));
       setPendingFiles((prev) => [...prev, ...newFiles]);
     },
@@ -91,6 +93,7 @@ export default function ImageUploader({ onUploadComplete, onClose }: ImageUpload
               .split(',')
               .map((t) => t.trim())
               .filter(Boolean),
+            price: pf.price.trim(),
             imageData,
             thumbnailData,
             createdAt: Date.now(),
@@ -186,6 +189,13 @@ export default function ImageUploader({ onUploadComplete, onClose }: ImageUpload
                         className="w-full text-sm px-2 py-1 rounded border border-gray-200 focus:outline-none focus:border-gray-400"
                       />
                       <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={pf.price}
+                          onChange={(e) => updateFile(idx, { price: e.target.value })}
+                          placeholder="Precio (ej: 15.000)"
+                          className="w-28 text-xs px-2 py-1 rounded border border-gray-200 focus:outline-none focus:border-gray-400"
+                        />
                         <input
                           type="text"
                           value={pf.tags}

@@ -4,6 +4,7 @@ export interface Product {
   description: string;
   category: Category;
   tags: string[];
+  price: string; // precio como texto (ej: "15.000") — vacío si no aplica
   imageData: string; // base64
   thumbnailData: string; // compressed base64 for grid
   createdAt: number;
@@ -23,6 +24,7 @@ export type Category =
   | 'VESTIDOS';
 
 export const CATEGORIES: Category[] = [
+  'REFERENCIAS',
   'TALLAS M',
   'TALLAS L',
   'TALLAS XL',
@@ -31,7 +33,6 @@ export const CATEGORIES: Category[] = [
   'CONJUNTOS L',
   'CONJUNTOS XL',
   'CONJUNTOS XXL',
-  'REFERENCIAS',
   'VESTIDOS',
 ];
 
@@ -51,6 +52,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { label: 'Referencias', filter: 'REFERENCIAS' },
   { label: 'Tallas M', filter: 'TALLAS M' },
   { label: 'Tallas L', filter: 'TALLAS L' },
   { label: 'Tallas XL', filter: 'TALLAS XL' },
@@ -65,6 +67,5 @@ export const NAV_ITEMS: NavItem[] = [
       { label: 'XXL', filter: 'CONJUNTOS XXL' },
     ],
   },
-  { label: 'Referencias', filter: 'REFERENCIAS' },
   { label: 'Vestidos', filter: 'VESTIDOS' },
 ];
